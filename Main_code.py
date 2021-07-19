@@ -5,9 +5,12 @@ from docplex.mp.model import *
 import numpy as np
 import pandas as pd
 import time
-
-m0=100000
+#Khởi tạo dữ liệu
+#Số nút cung
+m0=100000 
+#Số trang
 rand_page=500
+#Số ô trong trang
 rand_slot=5
 supply_data = pd.DataFrame(np.random.randint(0,2,size=m0), columns=['Gender'])
 Gender=np.random.randint(0,2,size=m0)
@@ -16,6 +19,7 @@ Affinity=np.random.randint(0,10,size=m0)
 PageID=np.random.randint(0,rand_page,size=m0)
 SlotID=np.random.randint(0,rand_slot,size=m0)
 s=np.random.randint(100,1000,size=m0)
+
 
 supply_data['Location']=Location
 supply_data['Affinity']=Affinity
@@ -42,6 +46,7 @@ supply_data_1=supply_data_1.groupby(['PageID','SlotID']).sum()
 
 s_sum=supply_data_1.to_numpy()
 
+#Thuật toán khử trùng lặp
 def algorithm_1_full(s,f):
     
     def s_to_omega(s):
@@ -157,6 +162,8 @@ v=v_last
 omega=omega_last
 d_j=np.zeros(d)
 u_j=np.zeros(d)
+
+#Bài toán đặt hàng (Đơn hàng đầu)
 def Booking_first():
     x_ij=np.zeros((len(z_last), d))
     Booking_1 = Model(name='Booking_1')
@@ -164,13 +171,10 @@ def Booking_first():
     #       value_j,p_j, psi_j, (d_j)
     #       z_i, omega_i, v_i
     #       gamma(i,j)         
-    # create flow variables for each couple of nodes
-    # x(i,j) is the flow going out of node i to node j
     x = {i : Booking_1.continuous_var(name='x_{0}_0'.format(i)) for i in range(1,m+1) }
     # each arc comes with a cost. Minimize all costed flows
     Booking_1.maximize(Value[0]*Booking_1.sum(z[i-1]*x[i] for i in range(1,m+1)))
 
-    #tm.print_information()
     for i in range(1,m+1):
         if gamma[i-1][0]==0:
             Booking_1.add_constraint(x[i]==0)
@@ -191,10 +195,12 @@ def Booking_first():
     return x_ij
 
 x_ij= Booking_first()
-if round(sum(z[i]*x_ij[i,0] for i in range(0,m))) < 100000000:
+if round(sum(z[i]*x_ij[i,0] for i in range(0,m))) < 2000000:
     d_j[0]=np.random.randint(1,round(sum(z[i]*x_ij[i,0] for i in range(0,m))))
 else:
-    d_j[0]=np.random.randint(1,100000000)
+    d_j[0]=np.random.randint(1,2000000)
+
+#Bài toán đặt hàng 
 def Booking_all(k):
     Booking_all = Model(name='Booking_all')
     x = {(i,j): Booking_all.continuous_var(name='x_{0}_{1}'.format(i,j)) for i in range(0,m) for j in range(0,k+1)}
@@ -237,10 +243,10 @@ for k in range(1,d):
     time_solve.append(end_time-start_time)
     print('Xét đơn thứ: ',k+1)
     print('Đã tốn ',end_time-start_time)
-    if round(sum(z[i]*x_ij[i,k] for i in range(0,m))) < 100000000:
+    if round(sum(z[i]*x_ij[i,k] for i in range(0,m))) < 2000000:
         d_j[k]=np.random.randint(1,round(sum(z[i]*x_ij[i,k] for i in range(0,m))))
     else:
-        d_j[k]=np.random.randint(1,100000000)
+        d_j[k]=np.random.randint(1,2000000)
 
 
 
@@ -251,7 +257,7 @@ for j in range(0,d):
 for i in range(0,m):
     for j in range(0,d):
         theta_ij[i,j]=d_j[j]/S_j[j]
-
+#Bài toán phân phối 
 def Allocation(k):
     Allocation = Model(name='Allocation')
     x = {(i,j): Allocation.continuous_var(name='x_{0}_{1}'.format(i,j)) for i in range(0,m) for j in range(0,k+1)}
@@ -278,6 +284,7 @@ def Allocation(k):
     for j in range(0,k+1):
         Allocation.add_constraint(u[j]>=0)
         Allocation.add_constraint(u[j]<=0.5*d_j[j])
+
     Result_all=Allocation.solve()
     for i in range(0,m):
         for j in range(0,k+1):
@@ -295,13 +302,14 @@ time_solve_allocation=end_time-start_time
 print("Thời gian phân phối: ",time_solve_allocation)
 print('DONE')
 
-#print('DONE')
 count_node=0
 for i in range(0,m):
     for j in range(0,d):
         if gamma[i,j]==1: 
             count_node= count_node+1
 print(count_node)
+
+#Biểu đồ kết quả
 import matplotlib.pyplot as plt
 plt.plot(range(0,d),time_solve)
 plt.xlabel('Đơn hàng')
